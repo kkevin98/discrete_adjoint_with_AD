@@ -83,4 +83,140 @@ uh_internal = A_internal\qA_internal
 u_internal  = u(X[internal])
 err = norm( uh_internal - u_internal ) / norm( u_internal )
 print("")
-print("Error: $(err)")
+println("Error: $(err)")
+
+
+
+# ------------------------------------------------------------
+
+# Define J (obj function) ~> We want to reach a designed u_target
+u_target(x) = (x .- a) .* (b .- x)
+u_target_num = u_target(X[internal])
+
+J(u_num) = norm(u_num - u_target_num)^2
+g(u_num) = 2 * (u_num - u_target_num)
+
+# Define ideal parameters
+h_target = A_internal * u_target_num 
+q_target_num = h_target + A_RHS*[u_a,u_b]
+error_h(h) = norm(h-h_target)^2
+
+
+
+function BB_geom_mean_step(x_k, x_k_plus_one, g_k, g_k_plus_one)
+
+    return √(BB_long_step(x_k, x_k_plus_one, g_k, g_k_plus_one)*BB_short_step(x_k, x_k_plus_one, g_k, g_k_plus_one))
+    
+end
+
+function adaptive_BB_step(x_k, x_k_plus_one, g_k, g_k_plus_one, number_of_optimizations, opt_cycle)  # my heuristic
+    return ( (number_of_optimizations - opt_cycle)*BB_long_step(x_k, x_k_plus_one, g_k, g_k_plus_one) + (opt_cycle)*BB_short_step(x_k, x_k_plus_one, g_k, g_k_plus_one) ) / number_of_optimizations
+end
+
+function BB_long_step(x_k, x_k_plus_one, g_k, g_k_plus_one)
+    #? should check g_k ≈ 0
+    dx = x_k_plus_one - x_k
+    dg = g_k_plus_one - g_k
+
+    return (dx' * dx) / (dx' * dg)
+end
+
+function BB_short_step(x_k, x_k_plus_one, g_k, g_k_plus_one)
+    #? should check g_k ≈ 0
+    dx = x_k_plus_one - x_k
+    dg = g_k_plus_one - g_k
+
+    return (dx' * dg) / (dg' * dg)
+end
+
+
+
+# function adjoint_optimization(A, h0, J, g, number_of_optimization, gain)
+#     #=
+#         Use adjoint method to min J(u)= g'+u subject to Au=h,
+#         starting from initial parameters h0
+#     =# 
+
+#     h = h0  # in our RBF case h = q - f
+
+#     u_num = q(X[internal])
+    
+#     for opt_cycle ∈ range(1, number_of_optimization)
+
+#         u_num = A \ h  # primal varibales from constraints
+#                        # in our case: - primal variables = field
+#                        #              - constraints = RBF equation
+
+#         # Sensitivity analysis
+#         g_num = g(u_num)
+#         v = A' \ g_num
+
+#         # Parameters update
+#         step_size = gain * opt_cycle^(-0.5)
+#         gradient_direction = v / norm(v)
+#         h -= step_size * gradient_direction
+
+#         println("J$(opt_cycle) = $(J(u_num)), error_h = $(error_h(h))")
+
+#     end
+
+#     h_opt = h
+#     u_opt_num = u_num
+
+#     return h_opt, u_opt_num
+
+# end
+
+function adjoint_optimization(A, h0, J, g, number_of_optimization)
+    #=
+        Use adjoint method to min J(u)= g'+u subject to Au=h,
+        starting from initial parameters h0
+    =#
+
+    h_k = h0                              # in our RBF case h = q - f
+    u_num_k = A \ h_k                     # field associated to current params
+    
+    println("J1 = $(J(u_num_k)), error_h = $(error_h(h_k))")
+    
+    # 1st update with simple gradient descent
+    g_num_k = g(u_num_k)                  # sensitivity analysis
+    v_k = A' \ g_num_k
+    h_k_plus_one = h_k - v_k / norm(v_k)  # params update
+    
+
+    for opt_cycle ∈ range(2, number_of_optimization)
+
+        u_num_k_plus_one = A \ h_k_plus_one
+
+        println("J$(opt_cycle) = $(J(u_num_k_plus_one)), error_h = $(error_h(h_k_plus_one))")
+
+        g_num_k_plus_one = g(u_num_k_plus_one)
+        v_k_plus_one = A' \ g_num_k_plus_one
+        
+        # Step size
+        γ_k = BB_long_step(h_k, h_k_plus_one, v_k, v_k_plus_one)
+
+        h_k = h_k_plus_one
+        v_k = v_k_plus_one
+
+        h_k_plus_one = h_k - γ_k*v_k
+
+    end
+
+    h_opt = h_k_plus_one
+    u_opt_num = A \ h_opt
+
+    return h_opt, u_opt_num
+
+end
+
+h0 = qA_internal  # h0 = q0 - f
+N = 1e4
+h_opt, u_opt_num = adjoint_optimization(A_internal, h0, J, g, N)
+q_opt_num = h_opt + A_RHS*[u_a,u_b]
+
+println("Fitness value is: $(J(u_opt_num))")
+println("Errors on the obtained q: $(q_opt_num - q_target_num)")
+println("Errors on the obtained u: $(u_opt_num - u_target_num)")
+println("Relative error on u: $(norm(u_opt_num - u_target_num) / norm(u_target_num))")
+println("Relative error on q: $(norm(q_opt_num - q_target_num) / norm(q_target_num))")
