@@ -89,37 +89,3 @@ u_internal = A_internal\qA_internal
 err = norm(u_internal - u(X[internal])) / norm(u_internal)
 # A sort of relative error
 println(err)
-
-# -------------------- Adjoint method --------------------
-
-
-# Funzione obiettivo
-u_target(x) = (x .- a) .* (b .- x)
-# u_target(x) = x.^2
-u_target_internal = u_target(X[internal])                             # u^{h} in RBF(30) 
-                                                                      # we assume to know it to check if adjoint gives correct results
-qA_internal_exact = A_internal * u_target_internal + A_RHS*[u_a,u_b]  # q in RBF(30)
-
-N_optim = 100
-for i_optim = 1 : N_optim
-    # Soluzione problema diretto
-    qA_internal = qA[internal] - A_RHS*[u_a,u_b]  # q-f
-    u_internal = A_internal\qA_internal           # u^{h} = C^(-1) * (q-f)
-
-    # Calcolo fitness J
-    J = norm( u_internal - u_target_internal )^2  # Estimation error for u^{h}
-    println("J$(i_optim) = $J")                   
-    
-    # Distanza vera dei parametri rispetto quelli esatti
-    error_qA_internal = norm(qA[internal] - qA_internal_exact) / norm(qA_internal_exact)
-    println("Error qA = $(error_qA_internal)")
-
-    # Calcolo sensitività
-    g = 2 * ( u_internal - u_target_internal )
-    v = (A_internal')\g
-
-    # Aggiornamento parametri
-    step_size = 0.5 #* i_optim^(-.5)
-    optimal_direction = v / norm(v)
-    qA[internal] -= step_size * optimal_direction
-end
