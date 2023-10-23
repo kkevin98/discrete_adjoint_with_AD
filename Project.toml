@@ -4,4 +4,5 @@ authors = ["Kevin Marzio <marzio92@gmail.com>"]
 version = "0.1.0"
 
 [deps]
-JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
