@@ -52,7 +52,7 @@ function global_matrix_row_from_stencil(central_point, nearby_points, RBF, ddRBF
     Π = [0, 0 ,2]
     c = (M') \ [Ψ; Π]
 
-    return c[1:length(nearby_points)]  #? Why should I subset c?
+    return c[1:length(nearby_points)]  # Discardin the indexes corresponding to the polynomial part since multiplied by zero
 
 end
 
